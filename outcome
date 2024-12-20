@@ -1,0 +1,9 @@
+def main_knn_pipeline(file_path, deal_id, features, k=3):
+    data = preprocess_data(load_data(file_path))
+    knn, X = prepare_knn_model(data, features, k=k + 1)  # +1 to account for excluding the deal itself
+    better_deals = find_better_deals_by_id(data, knn, X, deal_id, features, k)
+
+    if better_deals is not None:
+        print(f"Better deals for Deal ID {deal_id}:")
+        print(better_deals[['deal_id', 'name', 'download_speed', 'monthly_price', 'distance', 'is_better']])
+    return better_deals
