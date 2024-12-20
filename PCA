@@ -1,0 +1,56 @@
+import pandas as pd
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+
+# PCA
+def apply_pca(data, features, n_components=2):
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(data[features])
+
+    pca = PCA(n_components=n_components)
+    principal_components = pca.fit_transform(X_scaled)
+
+    for i in range(n_components):
+        data[f'PC{i+1}'] = principal_components[:, i]
+
+    return data, pca
+
+def find_better_deals(data, ideal_no, features, n_top=3):
+    data, pca = apply_pca(data, features, n_components=2)
+
+    ideal_row = data[data['deal_id'] == ideal_no]
+    if ideal_row.empty:
+        print(f"Ideal deal ID {ideal_no} not found in the dataset.")
+        return None
+
+    # distance to the ideal deal using PC1 and PC2
+    data['distance_to_ideal'] = ((data['PC1'] - ideal_row['PC1'].values[0]) ** 2 +
+                                 (data['PC2'] - ideal_row['PC2'].values[0]) ** 2) ** 0.5
+
+    better_deals = data[data['deal_id'] != ideal_no].sort_values(by='distance_to_ideal').head(n_top)
+
+    return better_deals
+
+def main_pca_pipeline(data, ideal_no, features, n_top=3):
+
+    data = preprocess_data(data)
+
+    better_deals = find_better_deals(data, ideal_no, features, n_top=n_top)
+
+    if better_deals is not None:
+        print(f"Top {n_top} better deals compared to Ideal Deal ID {ideal_no}:")
+        print(better_deals[['deal_id', 'name', 'distance_to_ideal', 'PC1', 'PC2']])
+    return better_deals
+
+if __name__ == "__main__":
+    data = preprocess_data(data)
+    features = ['download_speed', 'monthly_price', 'speed_per_dollar', 'speed_per_month', 'value_score']
+
+    ideal_no = 33530  # Replace with your ideal deal ID
+
+    better_deals = main_pca_pipeline(data, ideal_no, features, n_top=3)
+
+    if better_deals is not None:
+        better_deals_df = better_deals[['deal_id', 'name', 'distance_to_ideal', 'PC1', 'PC2']]
+        print("Better Deals DataFrame:")
+        print(better_deals_df)
