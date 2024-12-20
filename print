@@ -1,0 +1,11 @@
+if __name__ == "__main__":
+    features = ['download_speed', 'monthly_price', 'value_score']
+    data = preprocess_data(data)
+
+    deal_id = 30459  # Replace with the deal ID you want to check
+
+    better_deals = main_knn_pipeline(data, deal_id, features, k=3)
+
+    if better_deals is not None:
+        print("Top 3 better deals:")
+        print(better_deals[['deal_id', 'name', 'download_speed', 'monthly_price', 'distance', 'is_better']])
