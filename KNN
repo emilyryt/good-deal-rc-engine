@@ -1,0 +1,101 @@
+import numpy as np
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import NearestNeighbors
+
+# Load dataset
+data = pd.read_csv('broadband_with_no_business_deals_for_2024-12-01_len_240.csv')
+#mobile users, recommendation for the customers, good deal: 
+# Benchmark section: same benefit with lower price, lower price and more benefit, higher price and more benefit, same price and more benefits (3 deals more)
+# recommendation through all of the network, customer-based, driven by the price and benefits 
+data.head()
+
+def preprocess_data(data):
+
+    data = data.fillna({'download_speed': 0, 'monthly_price': 0, 'min_contract_length': 0})
+    data['download_speed'] = data['download_speed'].astype(float)
+    data['monthly_price'] = data['monthly_price'].astype(float)
+    data['min_contract_length'] = data['min_contract_length'].astype(int)
+
+    # Features
+    data['speed_per_dollar'] = data['download_speed'] / data['monthly_price']
+    data['speed_per_month'] = data['download_speed'] / data['min_contract_length']
+    data['value_score'] = data['speed_per_dollar'] * data['speed_per_month']
+    return data
+
+def prepare_knn_model(data, features, k):
+    X = data[features].values
+    knn = NearestNeighbors(n_neighbors=k, metric='euclidean')
+    knn.fit(X)
+    return knn, X
+    
+def find_better_deals_by_id(data, knn, X, deal_id, features, k=3):
+    query_row = data[data['deal_id'] == deal_id]
+    if query_row.empty:
+        print(f"Deal ID {deal_id} not found in the dataset.")
+        return None
+
+    query_point = query_row[features].values.reshape(1, -1)
+    
+    distances, indices = knn.kneighbors(query_point)
+    nearest_deals = data.iloc[indices[0]].copy()
+    nearest_deals['distance'] = distances[0]
+
+    nearest_deals = nearest_deals[nearest_deals['deal_id'] != deal_id]
+
+    # Apply better deal conditions
+    nearest_deals['is_better'] = (
+        (nearest_deals['monthly_price'] < query_row['monthly_price'].values[0]) &
+        (nearest_deals['download_speed'] >= query_row['download_speed'].values[0]) |
+        (nearest_deals['monthly_price'] <= query_row['monthly_price'].values[0]) &
+        (nearest_deals['download_speed'] > query_row['download_speed'].values[0]) |
+        (nearest_deals['monthly_price'] > query_row['monthly_price'].values[0]) &
+        (nearest_deals['download_speed'] > query_row['download_speed'].values[0]) |
+        (nearest_deals['monthly_price'] == query_row['monthly_price'].values[0]) &
+        (nearest_deals['download_speed'] > query_row['download_speed'].values[0])
+    )
+
+    better_deals = nearest_deals[nearest_deals['is_better']].sort_values(by=['distance']).head(k)
+    return better_deals
+
+def main_knn_pipeline(file_path, deal_id, features, k=3):
+    data = preprocess_data(load_data(file_path))
+    knn, X = prepare_knn_model(data, features, k=k + 1)  # +1 to account for excluding the deal itself
+    better_deals = find_better_deals_by_id(data, knn, X, deal_id, features, k)
+
+    if better_deals is not None:
+        print(f"Better deals for Deal ID {deal_id}:")
+        print(better_deals[['deal_id', 'name', 'download_speed', 'monthly_price', 'distance', 'is_better']])
+    return better_deals
+
+features = ['download_speed', 'monthly_price', 'value_score']
+knn, X = prepare_knn_model(data, features, k=5)
+better_deals = find_better_deals_by_id(data, knn, X, deal_id=30459, features=features, k=3)
+if better_deals is not None:
+    print(better_deals)
+
+def main_knn_pipeline(data, deal_id, features, k=3):
+    data = preprocess_data(data)
+    
+    knn, X = prepare_knn_model(data, features, k=k + 1)  # +1 to account for excluding the deal itself
+    
+    better_deals = find_better_deals_by_id(data, knn, X, deal_id, features, k)
+
+    if better_deals is not None:
+        print(f"Better deals for Deal ID {deal_id}:")
+        print(better_deals[['deal_id', 'name', 'download_speed', 'monthly_price', 'distance', 'is_better']])
+    return better_deals
+
+if __name__ == "__main__":
+    features = ['download_speed', 'monthly_price', 'value_score']
+    data = preprocess_data(data)
+
+    deal_id = 30459  # Replace with the deal ID you want to check
+
+    better_deals = main_knn_pipeline(data, deal_id, features, k=3)
+
+    if better_deals is not None:
+        print("Top 3 better deals:")
+        print(better_deals[['deal_id', 'name', 'download_speed', 'monthly_price', 'distance', 'is_better']])
