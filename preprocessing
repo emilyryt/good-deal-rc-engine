@@ -1,0 +1,26 @@
+import numpy as np
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import NearestNeighbors
+
+# Load dataset
+data = pd.read_csv('broadband_with_no_business_deals_for_2024-12-01_len_240.csv')
+#mobile users, recommendation for the customers, good deal: 
+# Benchmark section: same benefit with lower price, lower price and more benefit, higher price and more benefit, same price and more benefits (3 deals more)
+# recommendation through all of the network, customer-based, driven by the price and benefits 
+data.head()
+
+def preprocess_data(data):
+
+    data = data.fillna({'download_speed': 0, 'monthly_price': 0, 'min_contract_length': 0})
+    data['download_speed'] = data['download_speed'].astype(float)
+    data['monthly_price'] = data['monthly_price'].astype(float)
+    data['min_contract_length'] = data['min_contract_length'].astype(int)
+
+    # Features
+    data['speed_per_dollar'] = data['download_speed'] / data['monthly_price']
+    data['speed_per_month'] = data['download_speed'] / data['min_contract_length']
+    data['value_score'] = data['speed_per_dollar'] * data['speed_per_month']
+    return data
